@@ -34,7 +34,7 @@ echo "==== RESULTADOS ====" > "$OUTFILE"
 date >> "$OUTFILE"
 echo >> "$OUTFILE"
 
-METRICS=(jaccard precision size)
+METRICS=(jaccard f1 size)
 SEEDS=(123)
 
 N_VALUES=(6)
