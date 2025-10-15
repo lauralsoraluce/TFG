@@ -16,7 +16,6 @@ vector<SolMO> greedy(
     int k)
 {
     Expression curr(Bitset(), "∅", std::set<int>{}, /*ops=*/0);
-
     vector<SolMO> candidatos;
 
     unordered_set<std::string> seen;
@@ -26,7 +25,7 @@ vector<SolMO> greedy(
             double j     = M(e, G, Metric::Jaccard);
             int    sizeH = (int)M(e, G, Metric::SizeH);
             int    n_ops = (int)M(e, G, Metric::OpSize);
-            candidatos.emplace_back(e, n_ops, sizeH, j);   // ← reusa ctor de SolMO
+            candidatos.emplace_back(e, n_ops, sizeH, j);   
         }
     };
 
@@ -38,16 +37,30 @@ vector<SolMO> greedy(
         Expression bestE;
 
         for (int op = 0; op < 3; ++op) {
-            for (int i = 0; i < (int)F.size(); ++i) {
-                Bitset H_new = apply_op(op, curr.conjunto, F[i]);
+            for (int i = 0; i <= (int)F.size(); ++i) {
+                bool isU = (i==(int)F.size());
+
+                Bitset rhs;
+                string rhs_name;
+                if (isU) {
+                    rhs.set();
+                    rhs_name = "U";
+                }
+                else {
+                    rhs = F[i];
+                    rhs_name = "F" + std::to_string(i);
+                }
+
+                Bitset H_new = apply_op(op, curr.conjunto, rhs);
                 set<int> sets_new = curr.used_sets; 
-                sets_new.insert(i);
+                if (!isU) sets_new.insert(i);
+
                 int ops_new = (curr.expr_str == "∅") ? 0 : (curr.n_ops + 1);
 
                 const char* opstr = (op == 0) ? " ∪ " : (op == 1) ? " ∩ " : " \\ ";
                 string expr_new = (curr.expr_str == "∅")
-                    ? ("F" + std::to_string(i))
-                    : ("(" + curr.expr_str + opstr + "F" + std::to_string(i) + ")");
+                    ? rhs_name
+                    : ("(" + curr.expr_str + opstr + rhs_name + ")");
 
                 Expression E_new(H_new, std::move(expr_new), sets_new, ops_new);
 
