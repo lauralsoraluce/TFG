@@ -11,7 +11,8 @@ EXEC_PATH = os.path.join(ROOT_DIR, "build", "main")
 RESULTS_ROOT = os.path.join(ROOT_DIR, "results", "exp_genetico")
 
 # parámetros de las instancias
-SEEDS = [1020, 1030, 1040, 1050, 1060, 1070, 1080, 1090, 2000, 2001, 2002, 2003, 2004, 2005]
+SEEDS = [1000, 1010, 1020, 1030, 1040, 1050, 1060, 1070, 1080, 1090, 2000, 2010, 2020, 2030, 2040, 2050, 2060, 2070, 2080, 2090]
+#SEEDS = [1020]
 U_SIZE = 128
 F_N_MIN, F_N_MAX = 5, 100
 F_SIZE_MIN, F_SIZE_MAX = 5, 100
@@ -70,9 +71,10 @@ for i, seed in enumerate(SEEDS, start=1):
         fout.write("===============================================================================\n\n")
 
         # Ejecutar el programa C++ (pasa la semilla como argumento)
-        cmd = [EXEC_PATH, "false", str(seed)]
-        proc = subprocess.run(cmd, stdout=fout, stderr=subprocess.STDOUT, text=True, cwd=ROOT_DIR)
-
+        cmd = [EXEC_PATH, "--no-test", "--seed", str(seed), "--k", str(K), "--Fmin", str(F_N_MIN), "--Fmax", str(F_N_MAX), "--FsizeMin", str(F_SIZE_MIN), "--FsizeMax", str(F_SIZE_MAX)]
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, cwd=ROOT_DIR, check=False,)
+        
+        fout.write(proc.stdout or "")
         fout.write(f"\n[returncode] {proc.returncode}\n\n")
         fout.write("\n\n")
 
@@ -81,7 +83,14 @@ for i, seed in enumerate(SEEDS, start=1):
         frep.write(f"\n===============================================================================\n")
         frep.write(f"EXPERIMENTO {i} - SEMILLA: {seed}\n")
         frep.write("===============================================================================\n")
-        frep.write(f"Comando para reproducir:\n  {EXEC_PATH} false {seed}\n\n")
+        frep.write(f"Comando para reproducir:\n")
+        frep.write(
+	    f"  {EXEC_PATH} --no-test "
+	    f"--seed {seed} "
+	    f"--k {K} "
+	    f"--Fmin {F_N_MIN} --Fmax {F_N_MAX} "
+	    f"--FsizeMin {F_SIZE_MIN} --FsizeMax {F_SIZE_MAX}\n\n"
+	)
 
 print(f"\n✅ Experimento completado.\nResultados guardados en: {exp_dir}\n")
 

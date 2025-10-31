@@ -79,7 +79,9 @@ def compilar_programa(u_size):
         src_dir / 'metrics.cpp',
         src_dir / 'greedy.cpp',
         src_dir / 'genetico.cpp',
-        src_dir / 'spea2.cpp'
+        src_dir / 'spea2.cpp',
+        src_dir / 'generator.cpp',
+        src_dir / 'ground_truth.cpp'
     ]
     
     # Verificar que existen los archivos
@@ -109,7 +111,7 @@ def compilar_programa(u_size):
     print("✓ Compilación exitosa!")
     return build_dir / 'programa'
 
-def ejecutar_experimento(programa_path, config, seed, num_ejecucion, total, algo="all"):
+def ejecutar_experimento(programa_path, config, seed, num_ejecucion, total, algo="all", extra_args=None):
     """Ejecuta el programa con una semilla específica"""
     print(f"Ejecutando experimento {num_ejecucion}/{total} con semilla {seed}...")
     
@@ -124,6 +126,8 @@ def ejecutar_experimento(programa_path, config, seed, num_ejecucion, total, algo
         '--k', str(config['k']),
         '--seed', str(seed)
     ]
+    if extra_args:
+    	run_cmd += extra_args
     
     result = subprocess.run(run_cmd, capture_output=True, text=True, cwd=PROJECT_ROOT)
     
@@ -229,7 +233,7 @@ def crear_directorios(config):
     print(f"  - {results_batch}")
     print(f"  - {logs}")
 
-def ejecutar_experimentos_small(programa_path, config):
+def ejecutar_experimentos_small(programa_path, config, override_algo=None):
     """Ejecuta los experimentos pequeños (exhaustiva + greedy + genetico)"""
     
     cfg = config['small_config']
@@ -283,9 +287,11 @@ def ejecutar_experimentos_small(programa_path, config):
         f_rep.write(f"  SEMILLAS: {seeds}\n")
         f_rep.write(f"  ALGORITMOS: exhaustiva, greedy, genetico\n\n")
         
+        algo_to_run = override_algo or "all"
+        
         # Ejecutar experimentos
         for i, seed in enumerate(seeds, 1):
-            output = ejecutar_experimento(programa_path, cfg, seed, i, len(seeds), algo="all")
+            output = ejecutar_experimento(programa_path, cfg, seed, i, len(seeds), algo=algo_to_run, extra_args=['--time_limit', '150'])
             if output is None:
                 continue
             
@@ -328,7 +334,7 @@ def ejecutar_experimentos_small(programa_path, config):
             f_rep.write(f"  ./build/programa --algo all --G {cfg['G_size_min']} ")
             f_rep.write(f"--Fmin {cfg['F_n_min']} --Fmax {cfg['F_n_max']} ")
             f_rep.write(f"--FsizeMin {cfg['Fi_size_min']} --FsizeMax {cfg['Fi_size_max']} ")
-            f_rep.write(f"--k {cfg['k']} --seed {seed}\n\n")
+            f_rep.write(f"--k {cfg['k']} --seed {seed} --time_limit 150\n\n")
             
             # Resumen en consola
             print(f"  ✓ Experimento {i} completado:")
@@ -339,7 +345,7 @@ def ejecutar_experimentos_small(programa_path, config):
     print(f"  - Resumen CSV: {resumen_csv}\n")
 
 def ejecutar_experimentos_batch(programa_path, config):
-    """Ejecuta los experimentos batch (50 instancias - solo greedy)"""
+    """Ejecuta los experimentos batch (50 instancias - greedy y generico)"""
     
     cfg = config['batch_config']
     paths_cfg = config['paths']
@@ -354,7 +360,7 @@ def ejecutar_experimentos_batch(programa_path, config):
     print("="*80 + "\n")
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    results_dir = PROJECT_ROOT / paths_cfg['paths']['results_batch']
+    results_dir = PROJECT_ROOT / paths_cfg['results_batch']
     resultados_file = results_dir / f"{timestamp}_resultados_batch.txt"
     reprod_file = results_dir / f"{timestamp}_reproducibilidad_batch.txt"
     resumen_file = results_dir / f"{timestamp}_resumen_batch.csv"
@@ -365,7 +371,7 @@ def ejecutar_experimentos_batch(programa_path, config):
         
         # Encabezados
         f_res.write("=" * 80 + "\n")
-        f_res.write(f"RESULTADOS - EXPERIMENTOS BATCH (GREEDY)\n")
+        f_res.write(f"RESULTADOS - EXPERIMENTOS BATCH\n")
         f_res.write(f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f_res.write("=" * 80 + "\n\n")
         
@@ -379,7 +385,7 @@ def ejecutar_experimentos_batch(programa_path, config):
         
         # Parámetros efectivos
         f_rep.write("PARÁMETROS (BATCH - efectivos):\n")
-        f_rep.write(f"  U_SIZE: {root_cfg['U_size']}\n")
+        f_rep.write(f"  U_SIZE: {config['U_size']}\n")
         f_rep.write(f"  G_SIZE_MIN: {cfg['G_size_min']}\n")
         f_rep.write(f"  F_N_MIN: {cfg['F_n_min']}\n")
         f_rep.write(f"  F_N_MAX: {cfg['F_n_max']}\n")
@@ -387,11 +393,11 @@ def ejecutar_experimentos_batch(programa_path, config):
         f_rep.write(f"  FI_SIZE_MAX: {cfg['Fi_size_max']}\n")
         f_rep.write(f"  K: {cfg['k']}\n")
         f_rep.write(f"  SEMILLAS: {seeds}\n")
-        f_rep.write(f"  ALGORITMOS: greedy\n\n")
+        f_rep.write(f"  ALGORITMOS: greedy + genetico\n\n")
         
         # Ejecutar experimentos
         for i, seed in enumerate(seeds, 1):
-            output = ejecutar_experimento(programa_path, config, seed, i, len(seeds), algo="greedy")
+            output = ejecutar_experimento(programa_path, config, seed, i, len(seeds), algo="both")
             if output is None:
                 continue
             

@@ -1,24 +1,34 @@
-#include <iostream>
-#include <algorithm>
-#include <unordered_set>
+//======================================================================
+// greedy.cpp
+//----------------------------------------------------------------------
+// Heurística greedy para construir una expresión (≤ k ops) maximizando
+// Jaccard y, a igualdad, minimizando |H| y nº de operaciones.
+//======================================================================
+
 #include "metrics.hpp"
 #include "greedy.hpp"
 #include "solutions.hpp"
 
-using std::string;
-using std::vector;
-using std::size_t;
+#include <algorithm>
+#include <set>
+#include <string>
+#include <unordered_set>
+#include <vector>
+
 using namespace std;
 
+//------------------------------------------------------------------
+// Greedy principal
+//------------------------------------------------------------------
 vector<SolMO> greedy(
-    const std::vector<Bitset>& F,
+    const vector<Bitset>& F,
     const Bitset& G,
     int k)
 {
-    Expression curr(Bitset(), "∅", std::set<int>{}, /*ops=*/0);
+    Expression curr(Bitset(), "∅", set<int>{}, 0);
     vector<SolMO> candidatos;
 
-    unordered_set<std::string> seen;
+    unordered_set<string> seen;
     auto try_push = [&](const Expression& e) {
         string key = e.conjunto.to_string();
         if (seen.insert(key).second) {
@@ -29,11 +39,14 @@ vector<SolMO> greedy(
         }
     };
 
+    // Punto de partida: vacío
     try_push(curr);
 
     for (int iter = 0; iter < k; ++iter) {
         bool found = false;
-        double best_j = -1.0; int best_sz = 1e9, best_ops = 1e9;
+        double best_j = -1.0; 
+        int best_sz = 1e9; 
+        int best_ops = 1e9;
         Expression bestE;
 
         for (int op = 0; op < 3; ++op) {
@@ -43,15 +56,16 @@ vector<SolMO> greedy(
                 Bitset rhs;
                 string rhs_name;
                 if (isU) {
-                    rhs.set();
+                    rhs.set();      // U
                     rhs_name = "U";
                 }
                 else {
-                    rhs = F[i];
+                    rhs = F[i];     // F_i
                     rhs_name = "F" + std::to_string(i);
                 }
 
                 Bitset H_new = apply_op(op, curr.conjunto, rhs);
+
                 set<int> sets_new = curr.used_sets; 
                 if (!isU) sets_new.insert(i);
 
@@ -63,7 +77,6 @@ vector<SolMO> greedy(
                     : ("(" + curr.expr_str + opstr + rhs_name + ")");
 
                 Expression E_new(H_new, std::move(expr_new), sets_new, ops_new);
-
                 try_push(E_new);
 
                 double j  = M(E_new, G, Metric::Jaccard);
@@ -76,9 +89,11 @@ vector<SolMO> greedy(
             }
         }
         if (!found) break;
+
         curr = move(bestE);
         try_push(curr);
     }
-
-    return pareto_front(candidatos);  // ← reutiliza el común
+    
+    // Devuelve el frente de Pareto
+    return pareto_front(candidatos);
 }

@@ -1,27 +1,36 @@
+//======================================================================
+// ground_truth.hpp
+//----------------------------------------------------------------------
+// Generación de una instancia "ground truth":
+//  - Construye una expresión aleatoria (≤ k ops) a partir de F
+//  - Devuelve el G resultante de evaluarla, junto con F y la expresión
+//    que lo generó.
+//======================================================================
+
 #pragma once
-#include "genetico.hpp"
-#include <random>
+
 #include <vector>
+#include <cstdint>
+#include "domain.hpp"
+#include "expr.hpp"
 
-// ============================================================================
-// Módulo de generación "ground truth"
-// Crea una expresión aleatoria (≤k ops) a partir de F y devuelve el G resultante
-// ============================================================================
-
+//------------------------------------------------------------------
+// Estructura de la instancia generada
+//------------------------------------------------------------------
 struct GroundTruthInstance {
     std::vector<Bitset> F;   // conjuntos base
     Bitset G;                // conjunto objetivo
     Expression gold_expr;    // expresión que genera G
-    uint64_t seed;           // semilla usada
+    std::uint64_t seed;           // semilla usada
 };
 
-// 
-// y el G resultante de evaluarla.
+//------------------------------------------------------------------
+// Construcción de la instancia ground-truth
+//------------------------------------------------------------------
 GroundTruthInstance make_groundtruth(int n = 128,
                                      int n_min = 6,
                                      int n_max = 10,
                                      int tam_min = 10,
                                      int tam_max = 80,
                                      int k = 10,
-                                     uint64_t seed_F = 123,
-                                     uint64_t seed_expr = 20251019);
+                                     std::uint64_t seed_F = 123);

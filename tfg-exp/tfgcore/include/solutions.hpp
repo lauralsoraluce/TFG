@@ -1,10 +1,26 @@
-#pragma once
-#include <vector>
-#include <algorithm>
-#include "expr.hpp"  // donde esté tu struct Expression
-#include <iostream>
+//======================================================================
+// solutions.hpp
+//----------------------------------------------------------------------
+// Tipos y utilidades comunes para soluciones multiobjetivo:
+//   - SolMO: solución con métricas (Jaccard, |H|, nº ops)
+//   - Individuo: añade rank y crowding para NSGA-II
+//   - dominates(): relación de dominancia
+//   - pareto_front(): frente de Pareto para SolMO/Individuo
+//   - print_pareto_front(): salida simple a stdout
+//======================================================================
 
-// === Solución multiobjetivo común ===
+#pragma once
+
+#include <algorithm>
+#include <cstddef>
+#include <iostream>
+#include <vector>
+
+#include "expr.hpp"
+
+//------------------------------------------------------------------
+// Solución multiobjetivo base
+//------------------------------------------------------------------
 struct SolMO {
     Expression expr;
     int n_ops = 0;
@@ -14,13 +30,14 @@ struct SolMO {
     SolMO() = default;
     SolMO(const Expression& e, int ops, int size, double j)
         : expr(e), n_ops(ops), sizeH(size), jaccard(j) {}
-    virtual ~SolMO() = default;
 };
 
+//------------------------------------------------------------------
+// Individuo (para GA/NSGA-II)
+//------------------------------------------------------------------
 struct Individuo : public SolMO{
     int rank = 0;
     double crowd = 0.0;
-
     Individuo() = default;
     Individuo(const Expression& e, int ops, int size, double j)
         : SolMO(e, ops, size, j), rank(0), crowd(0.0) {}
@@ -28,14 +45,18 @@ struct Individuo : public SolMO{
         : SolMO(s), rank(0), crowd(0.0) {}
 };
 
+//------------------------------------------------------------------
 // Dominancia: max Jaccard, min n_ops, min |H|
+//------------------------------------------------------------------
 inline bool dominates(const SolMO& a, const SolMO& b) {
     bool ge = (a.jaccard >= b.jaccard) && (a.n_ops <= b.n_ops) && (a.sizeH <= b.sizeH);
     bool gt = (a.jaccard >  b.jaccard) || (a.n_ops <  b.n_ops) || (a.sizeH <  b.sizeH);
     return ge && gt;
 }
 
-// Pareto front genérico (funciona con SolMO e Individuo)
+//------------------------------------------------------------------
+// Frente de Pareto genérico (SolMO / Individuo)
+//------------------------------------------------------------------
 template<typename T>
 std::vector<T> pareto_front_generic(const std::vector<T>& v) {
     if (v.empty()) return {};
@@ -57,11 +78,10 @@ std::vector<T> pareto_front_generic(const std::vector<T>& v) {
         }
     }
     
-    // Ordenar frente de Pareto
     std::stable_sort(nd.begin(), nd.end(), [](const T& a, const T& b) {
-        if (a.jaccard != b.jaccard) return a.jaccard > b.jaccard;
-        if (a.sizeH != b.sizeH) return a.sizeH < b.sizeH;
-        return a.n_ops < b.n_ops;
+        if (a.jaccard != b.jaccard) return a.jaccard > b.jaccard; // descendiente
+        if (a.sizeH != b.sizeH) return a.sizeH < b.sizeH; // ascendiente
+        return a.n_ops < b.n_ops; // ascendiente
     });
     
     return nd;
@@ -75,6 +95,9 @@ inline std::vector<Individuo> pareto_front(const std::vector<Individuo>& v) {
     return pareto_front_generic(v);
 }
 
+//------------------------------------------------------------------
+// Impresión sencilla del frente de Pareto
+//------------------------------------------------------------------
 template<typename T>
 void print_pareto_front_generic(const vector<T>& pareto) {
     std::cout << "\n=== FRENTE DE PARETO ===" << std::endl;

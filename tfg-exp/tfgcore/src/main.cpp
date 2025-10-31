@@ -9,7 +9,6 @@
 #include "solutions.hpp"
 #include "greedy.hpp"
 #include "genetico.hpp"
-#include "spea2.hpp"
 #include "ground_truth.hpp"
 
 using namespace std;
@@ -19,9 +18,6 @@ struct ResultadoAlgoritmo {
     string nombre;
     vector<T> soluciones;
     long long tiempo_ms;
-    /*double Jaccard_promedio;
-    double SizeH_promedio;
-    double OpSize_promedio;*/
 };
 
 inline std::vector<SolMO> individuos_a_solmos(const std::vector<Individuo>& v) {
@@ -43,43 +39,172 @@ static void print_set_indices(const Bitset& B, int U=128, int max_show=40) {
     cout << "\n";
 }
 
-int main(int argc, char** argv) {
-    bool modo_test = false;
-    int seed_expr = 20251019;
-    if (argc >= 2) {
-        string arg1 = argv[1];
-        std::transform(arg1.begin(), arg1.end(), arg1.begin(), ::toupper);
-        if (arg1 == "TRUE" || arg1 == "1" || arg1 == "ON") modo_test = true;
+
+static void print_conjuntos(const Bitset& G, const std::vector<Bitset>& F) {
+    cout << "=== CONJUNTOS ===" << endl;
+
+    cout << "CONJUNTO_G: ";
+    for (int i = 0; i < U_size; ++i) {
+        if (G[i]) cout << i << ",";
     }
-    if (argc >= 3) {
-        seed_expr = std::stoi(argv[2]);
+    cout << "\n";
+
+    cout << "NUM_CONJUNTOS_F: " << F.size() << "\n";
+    for (size_t j = 0; j < F.size(); ++j) {
+        cout << "F" << j << ": ";
+        for (int i = 0; i < U_size; ++i) {
+            if (F[j][i]) cout << i << ",";
+        }
+        cout << "\n\n";
+    }    
+}
+
+int main(int argc, char** argv) {
+    int G_size_min= 10;
+    int F_n_min= 5;
+    int F_n_max= 100;
+    int Fi_size_min= 5;
+    int Fi_size_max= 100;
+    int k= 10;
+    int seed= 1030;
+    bool ejecutar_exhaustiva= true;
+    bool ejecutar_greedy= true;
+    bool ejecutar_genetico= true;
+    int pop_size=800;
+    double mutation_prob= 0.55;      
+    double crossover_prob= 0.85;     
+    int tournament_size= 2;         
+    int max_generations= 1e9;       
+    int time_limit= 1800;   
+    bool modo_test= false;
+    int seed_expr= (uint64_t)chrono::high_resolution_clock::now().time_since_epoch().count();      
+
+    for (int i = 1; i < argc; i++) {
+        string a = argv[i];
+
+        if (a == "--G") G_size_min=stoi(argv[++i]);
+        else if (a == "--Fmin") F_n_min=stoi(argv[++i]);
+        else if (a == "--Fmax") F_n_max=stoi(argv[++i]);
+        else if (a == "--FsizeMin") Fi_size_min=stoi(argv[++i]);
+        else if (a == "--FsizeMax") Fi_size_max=stoi(argv[++i]);
+        else if (a == "--k") k=stoi(argv[++i]);
+        else if (a == "--seed") seed=stoi(argv[++i]);
+        else if (a == "--pop_size") pop_size=stoi(argv[++i]);
+        else if (a == "--mutation_prob") {mutation_prob=stod(argv[++i]);} // ahora en genetico.hpp
+        else if (a == "--crossover_prob") {crossover_prob=stod(argv[++i]);} // ahora en genetico.hpp
+        else if (a == "--tournament_size") {tournament_size=stoi(argv[++i]);} // ahora en genetico.hpp
+        else if (a == "--max_generations") {max_generations=stoi(argv[++i]);} // ahora en genetico.hpp
+        else if (a == "--time_limit") {time_limit=stoi(argv[++i]);} // ahora en genetico.hpp
+        else if (a == "--no-test") modo_test= false;
+        else if (a == "--seed_expr") seed_expr=stoi(argv[++i]);
+        else if (a == "--algo") {
+            string algo = argv[++i];
+            ejecutar_exhaustiva = (algo == "exhaustiva" || algo == "all");
+            ejecutar_greedy = (algo == "greedy" || algo =="both" || algo == "all");
+            ejecutar_genetico = (algo == "genetico" || algo == "both" || algo == "all");
+        }
+    }
+
+    if (modo_test) {
+        
+        int n = U_size;
+        Bitset U;
+        for (int i = 0; i < n; ++i) U[i] = 1;
+
+        Bitset G = generar_G(n, G_size_min, seed);
+        std::vector<Bitset> F = generar_F(n, F_n_min, F_n_max, Fi_size_min, Fi_size_max, seed);
+
+        cout << "Semilla: " << seed << "\n";
+        cout << "U_size: " << U_size << "\n";
+        cout << "G_size: " << G.count() << "\n";
+        cout << "F_count: " << F.size() << "\n";
+        cout << "k: " << k << "\n";
+
+        vector<ResultadoAlgoritmo<SolMO>> resultados;
+
+        if (ejecutar_exhaustiva) {
+            // EXHAUSTIVA
+            cout << "=== EXHAUSTIVA ===\n";
+            auto t0 = chrono::high_resolution_clock::now();
+            auto expr = exhaustive_search(F, U, k);
+            auto soluciones = evaluar_subconjuntos(expr, G, k);
+            auto t1 = chrono::high_resolution_clock::now();
+            auto dur_ms = chrono::duration_cast<chrono::milliseconds>(t1 - t0).count();
+
+            cout <<"Tiempo_ejecucion_ms: " << dur_ms << "\n\n";
+            print_pareto_front(soluciones);
+            resultados.push_back({"Exhaustiva", soluciones, dur_ms});
+        }
+        if (ejecutar_greedy) {
+            // GREEDY
+            cout << "=== GREEDY ===\n";
+            auto t0 = chrono::high_resolution_clock::now();
+            auto soluciones = greedy(F, G, k);
+            auto t1 = chrono::high_resolution_clock::now();
+            auto dur_ms = chrono::duration_cast<chrono::milliseconds>(t1 - t0).count();
+
+            cout <<"Tiempo_ejecucion_ms: " << dur_ms << "\n\n";
+            print_pareto_front(soluciones);
+            resultados.push_back({"Greedy", soluciones, dur_ms});
+        }
+        if (ejecutar_genetico) {
+            // GENETICO (NSGA-II)
+            cout << "=== GENETICO (NSGA-II) ===\n";
+            GAParams ga_params;
+            ga_params.population_size   = pop_size;
+            ga_params.max_generations   = max_generations;
+            ga_params.time_limit_sec    = time_limit;
+            ga_params.crossover_prob    = crossover_prob;
+            ga_params.mutation_prob     = mutation_prob;
+            ga_params.tournament_size   = tournament_size;
+            ga_params.seed              = seed_expr;
+
+            cout << "Semilla_GA: " << ga_params.seed << "\n";
+            cout << "Población: " << ga_params.population_size << endl;
+            cout << "Limite_tiempo (s): " << ga_params.time_limit_sec << endl;
+            cout << "Prob. mutación: " << ga_params.mutation_prob << endl;
+            cout << "Prob. cruce: " << ga_params.crossover_prob << endl;
+            cout << "Tamaño torneo: " << ga_params.tournament_size << "\n";
+            cout << "Generaciones máx.: " << ga_params.max_generations << "\n";
+
+            auto t0 = chrono::high_resolution_clock::now();
+            auto soluciones = nsga2(F, G, k, ga_params);
+            auto t1 = chrono::high_resolution_clock::now();
+            auto dur_ms = chrono::duration_cast<chrono::milliseconds>(t1 - t0).count();
+
+            cout <<"Tiempo_ejecucion_ms: " << dur_ms << "\n\n";
+            print_pareto_front(soluciones);
+            resultados.push_back({"Genetico_NSGA-II", individuos_a_solmos(soluciones), dur_ms});
+        }
+
+        print_conjuntos(G, F);
     }
 
     if (!modo_test){
-        auto gt = make_groundtruth(128, 5, 100, 5, 100, 10, 123, 20251019);
+        auto gt = make_groundtruth(U_size, F_n_min, F_n_max, Fi_size_min, Fi_size_max, k, seed);
 
         cout << "=== INSTANCIA ===\n";
-        cout << "Semilla: " << seed_expr << "\n";
-        cout << "U_size: 128\n";
+        cout << "Semilla: " << gt.seed << "\n";
+        cout << "U_size: " << U_size << "\n";
         cout << "F_count: " << gt.F.size() << "\n";
-        cout << "k: 10\n";
+        cout << "k: " << k << "\n";
         cout << "Expresion_oro: " << gt.gold_expr.expr_str << "\n";
         cout << "Jaccard_objetivo: " << M(gt.gold_expr, gt.G, Metric::Jaccard) << "\n";
         cout << "G_indices: ";
-        print_set_indices(gt.G, 128, 64);
+        print_set_indices(gt.G, U_size, 64);
         cout << "\n";
 
         GAParams ga_params;
-        ga_params.population_size   = 600;
-        ga_params.max_generations   = 1e9;
-        ga_params.time_limit_sec    = 600;
-        ga_params.crossover_prob    = 0.8;
-        ga_params.mutation_prob     = 0.6;
-        ga_params.tournament_size   = 2;
-        ga_params.seed              = 0;
+        ga_params.population_size   = pop_size;
+        ga_params.max_generations   = max_generations;
+        ga_params.time_limit_sec    = time_limit;
+        ga_params.crossover_prob    = crossover_prob;
+        ga_params.mutation_prob     = mutation_prob;
+        ga_params.tournament_size   = tournament_size;
+        ga_params.seed              = seed_expr;
 
         auto t0 = chrono::steady_clock::now();
-        auto pareto = nsga2(gt.F, gt.G, 10, ga_params);
+        auto pareto = nsga2(gt.F, gt.G, k, ga_params);
         auto t1 = chrono::steady_clock::now();
         auto dur_ms = chrono::duration_cast<chrono::milliseconds>(t1 - t0).count();
 

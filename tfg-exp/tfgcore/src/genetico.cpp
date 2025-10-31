@@ -1,25 +1,34 @@
+//======================================================================
+// genetico.cpp
+//----------------------------------------------------------------------
+// Implementación de NSGA-II y utilidades para generar/optimizar
+// expresiones sobre conjuntos.
+//======================================================================
+
 #include "genetico.hpp"
 #include "metrics.hpp"
+
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <random>
 #include <set>
-#include <unordered_set>
-#include <iostream>
 #include <string>
-#include <random>   // por si no viene de .hpp
-#include <chrono>   // por si no viene de .hpp
+#include <unordered_set>
+#include <vector>
 
 using namespace std;
 
-// --- claves de deduplicación ---
-static inline std::string key_of_H(const Expression& e)   { return e.conjunto.to_string(); }
-static inline std::string key_of_expr(const Expression& e){ return e.expr_str; }
+//------------------------------------------------------------------
+// Claves para deduplicar
+//------------------------------------------------------------------
+static inline string key_of_H(const Expression& e)   { return e.conjunto.to_string(); }
+static inline string key_of_expr(const Expression& e){ return e.expr_str; }
 
-// dedup por H (antes de devolver/imprimir)
 template <typename T>
-static std::vector<T> unique_by_H(const std::vector<T>& v) {
-    std::vector<T> out;
-    std::unordered_set<std::string> seen;
+static vector<T> unique_by_H(const vector<T>& v) {
+    vector<T> out;
+    unordered_set<string> seen;
     out.reserve(v.size());
     for (const auto& x : v) {
         auto key = key_of_H(x.expr);
@@ -28,25 +37,29 @@ static std::vector<T> unique_by_H(const std::vector<T>& v) {
     return out;
 }
 
-// ------------ árbol binario aleatorio (≤ k ops) ------------
-Expression build_random_expr(const std::vector<int>& conjs, const std::vector<Bitset>& F, int k, std::mt19937& rng){
+//------------------------------------------------------------------
+// Árbol binario aleatorio (≤ k operaciones)
+//------------------------------------------------------------------
+Expression build_random_expr(const vector<int>& conjs, const vector<Bitset>& F, int k, mt19937& rng){
     if (conjs.empty()) return Expression(Bitset(), "∅", {}, 0);
     if (conjs.size() == 1) {
         int idx = conjs[0];
-        return Expression(F[idx], "F"+std::to_string(idx), {idx}, 0);
+        return Expression(F[idx], "F"+to_string(idx), {idx}, 0);
     }
     struct Node{ Expression e; };
-    std::vector<Node> pool; pool.reserve(conjs.size());
-    for (int idx : conjs) pool.push_back({ Expression(F[idx], "F"+std::to_string(idx), {idx}, 0) });
+    vector<Node> pool; pool.reserve(conjs.size());
+    for (int idx : conjs) pool.push_back({ Expression(F[idx], "F"+to_string(idx), {idx}, 0) });
 
     int intentos_fallidos = 0;
     const int max_intentos = 100;
 
     while (pool.size() > 1 && intentos_fallidos < max_intentos) {
-        std::uniform_int_distribution<> pick(0, (int)pool.size()-1);
-        int a = pick(rng), b = pick(rng); if (a==b) {intentos_fallidos++; continue;}; if (a>b) std::swap(a,b);
-        int op = std::uniform_int_distribution<>(0,2)(rng); 
-        
+        uniform_int_distribution<> pick(0, (int)pool.size()-1);
+        int a = pick(rng), b = pick(rng); 
+        if (a==b) {intentos_fallidos++; continue;}
+        if (a>b) swap(a,b);
+
+        int op = uniform_int_distribution<>(0,2)(rng); 
         const char* op_str = (op==0) ?" ∪ ":(op==1)?" ∩ ":" \\ ";
 
         Bitset H;
@@ -54,14 +67,12 @@ Expression build_random_expr(const std::vector<int>& conjs, const std::vector<Bi
         if (op==1) H = set_intersect(pool[a].e.conjunto, pool[b].e.conjunto);
         if (op==2) H = set_difference(pool[a].e.conjunto, pool[b].e.conjunto);
 
-
         int ops_new = pool[a].e.n_ops + pool[b].e.n_ops + 1;
         if (ops_new > k) {intentos_fallidos++; continue;}; // no exceder k
 
-        std::set<int> usados = pool[a].e.used_sets;
+        set<int> usados = pool[a].e.used_sets;
         usados.insert(pool[b].e.used_sets.begin(), pool[b].e.used_sets.end());
-        std::string expr_str = "(" + pool[a].e.expr_str + op_str + pool[b].e.expr_str + ")";
-
+        string expr_str = "(" + pool[a].e.expr_str + op_str + pool[b].e.expr_str + ")";
 
         pool[a].e = Expression(H, expr_str, usados, ops_new);
         pool.erase(pool.begin()+b);
@@ -79,29 +90,35 @@ vector<Individuo> nsga2(
     int k,
     const GAParams& params)
 {
-    // Semilla: si es 0, usar tiempo actual (no determinista)
-    uint64_t seed = params.seed ? params.seed : (uint64_t)std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    std::mt19937 rng(seed);
+    // Semilla: si es 0, usar tiempo actual (para que sea no determinista)
+    uint64_t seed = params.seed 
+        ? params.seed 
+        : (uint64_t)chrono::high_resolution_clock::now().time_since_epoch().count();
+    mt19937 rng(seed);
 
     auto start_time = chrono::steady_clock::now();
     auto time_limit = chrono::seconds(params.time_limit_sec);
 
-    // 1) Población inicial 100% aleatoria
+    // 1) Población inicial
     vector<Individuo> poblacion = inicializar_poblacion(F, G, k, params.population_size, rng);
+    Individuo mejor_global = poblacion[0];
+    for (const auto& ind : poblacion) {
+        if (ind.jaccard > mejor_global.jaccard) mejor_global = ind;
+    }
 
     int generation = 0;
-
     while (generation < params.max_generations) {
-        // Verificar tiempo
+        // Límite de tiempo
         if (chrono::steady_clock::now() - start_time >= time_limit) {
             break;
         }
+        if (mejor_global.jaccard >= 0.99999) break;
 
         // 2) Offspring con anti-duplicados por estructura
         vector<Individuo> offspring;
         offspring.reserve(params.population_size);
         
-        std::unordered_set<std::string> seen_gen;
+        unordered_set<string> seen_gen;
         seen_gen.reserve(params.population_size * 2);
         for (const auto& ind : poblacion) seen_gen.insert(key_of_expr(ind.expr));
 
@@ -125,7 +142,7 @@ vector<Individuo> nsga2(
             hijo.n_ops   = hijo.expr.n_ops;
 
             if (seen_gen.insert(key_of_expr(hijo.expr)).second) {
-                offspring.push_back(std::move(hijo));
+                offspring.push_back(move(hijo));
             }
         }
 
@@ -148,22 +165,24 @@ vector<Individuo> nsga2(
             if (Pnext.size() + Fi.size() <= (size_t)params.population_size) {
                 Pnext.insert(Pnext.end(), Fi.begin(), Fi.end());
             } else {
-                // Ordenar por crowding distance
+                // Ordenar por crowding distance descendente
                 sort(Fi.begin(), Fi.end(),
                     [](const Individuo& a, const Individuo& b) {
                         if (isinf(a.crowd) && !isinf(b.crowd)) return true;
                         if (!isinf(a.crowd) && isinf(b.crowd)) return false;
                         return a.crowd > b.crowd;
                     });
-                
                 size_t need = params.population_size - Pnext.size();
                 Pnext.insert(Pnext.end(), Fi.begin(), Fi.begin() + need);
                 break;
             }
         }
 
-        poblacion = std::move(Pnext);
-
+        for (const auto& ind : Pnext) {
+            if (ind.jaccard > mejor_global.jaccard) mejor_global = ind;
+        }
+        
+        poblacion = move(Pnext);
         generation++;
     }
 
@@ -312,39 +331,39 @@ Individuo crossover(const Individuo& p1, const Individuo& p2,
     Expression e = build_random_expr(conjs, F, k, rng);
 
     Individuo h;
-    h.expr = std::move(e);
+    h.expr = move(e);
     h.n_ops = h.expr.n_ops;
     return h;
 }
 
-void mutar(Individuo& ind, const std::vector<Bitset>& F, int k, std::mt19937& rng){
-    int tipo = std::uniform_int_distribution<>(0,2)(rng);
-    std::vector<int> conjs(ind.expr.used_sets.begin(), ind.expr.used_sets.end());
+void mutar(Individuo& ind, const vector<Bitset>& F, int k, mt19937& rng){
+    int tipo = uniform_int_distribution<>(0,2)(rng);
+    vector<int> conjs(ind.expr.used_sets.begin(), ind.expr.used_sets.end());
     
     if (tipo == 0) {
         // Reorganizar conjuntos existentes
         if (conjs.empty()) {
-            int idx = std::uniform_int_distribution<>(0,(int)F.size()-1)(rng);
-            ind.expr = Expression(F[idx], "F"+std::to_string(idx), {idx}, 0);
+            int idx = uniform_int_distribution<>(0,(int)F.size()-1)(rng);
+            ind.expr = Expression(F[idx], "F"+to_string(idx), {idx}, 0);
         } else {
-            std::shuffle(conjs.begin(), conjs.end(), rng);
+            shuffle(conjs.begin(), conjs.end(), rng);
             ind.expr = build_random_expr(conjs, F, k, rng);
         }
     } else if (tipo == 1) {
         // Reemplazar un conjunto
         if (conjs.empty()) {
-            int idx = std::uniform_int_distribution<>(0,(int)F.size()-1)(rng);
-            ind.expr = Expression(F[idx], "F"+std::to_string(idx), {idx}, 0);
+            int idx = uniform_int_distribution<>(0,(int)F.size()-1)(rng);
+            ind.expr = Expression(F[idx], "F"+to_string(idx), {idx}, 0);
         } else {
-            int pos = std::uniform_int_distribution<>(0,(int)conjs.size()-1)(rng);
-            conjs[pos] = std::uniform_int_distribution<>(0,(int)F.size()-1)(rng);
-            std::shuffle(conjs.begin(), conjs.end(), rng);
+            int pos = uniform_int_distribution<>(0,(int)conjs.size()-1)(rng);
+            conjs[pos] = uniform_int_distribution<>(0,(int)F.size()-1)(rng);
+            shuffle(conjs.begin(), conjs.end(), rng);
             ind.expr = build_random_expr(conjs, F, k, rng);
         }
     } else {
         // Añadir un nuevo conjunto
-        conjs.push_back(std::uniform_int_distribution<>(0,(int)F.size()-1)(rng));
-        std::shuffle(conjs.begin(), conjs.end(), rng);
+        conjs.push_back(uniform_int_distribution<>(0,(int)F.size()-1)(rng));
+        shuffle(conjs.begin(), conjs.end(), rng);
         ind.expr = build_random_expr(conjs, F, k, rng);
     }
     
@@ -358,11 +377,12 @@ vector<Individuo> inicializar_poblacion(const vector<Bitset>& F,
                                         const Bitset& G, int k, int pop_size, mt19937& rng) {
     vector<Individuo> pop;
     pop.reserve(pop_size);
+
     unordered_set<string> vistos_expr;
     vistos_expr.reserve(pop_size * 2);
 
     while ((int)pop.size() < pop_size) {
-        int max_sets = std::min<int>((int)F.size(), k+1);
+        int max_sets = min<int>((int)F.size(), k+1);
         int num_conjs = uniform_int_distribution<>(1, max_sets)(rng);
 
         set<int> usados;
@@ -377,14 +397,14 @@ vector<Individuo> inicializar_poblacion(const vector<Bitset>& F,
         if (!vistos_expr.insert(keyE).second) continue;
 
         Individuo ind;
-        ind.expr    = std::move(e);
+        ind.expr    = move(e);
         ind.jaccard = M(ind.expr, G, Metric::Jaccard);
         ind.sizeH   = (int)M(ind.expr, G, Metric::SizeH);
         ind.n_ops   = ind.expr.n_ops;
         ind.rank    = 0;
         ind.crowd   = 0.0;
 
-        pop.push_back(std::move(ind));
+        pop.push_back(move(ind));
     }
 
     return pop;
