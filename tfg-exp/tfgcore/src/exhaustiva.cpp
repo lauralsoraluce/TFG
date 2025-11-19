@@ -1,9 +1,8 @@
-//======================================================================
+//----------------------------------------------------------------------
 // exhaustiva.cpp
 //----------------------------------------------------------------------
-// Generación exhaustiva de expresiones hasta profundidad k y evaluación
-// frente a un objetivo G.
-//======================================================================
+// Implementa la búsqueda exhaustiva con profundidad limitada.
+//----------------------------------------------------------------------
 
 #include <unordered_set>
 #include <set>
@@ -16,8 +15,11 @@
 
 using namespace std;
 
-/* BÚSQUEDA EXHAUSTIVA */
-vector<SolMO> exhaustive_search(
+//------------------------------------------------------------------
+/* Genera todas las expresiones posibles hasta profundidad k
+    a partir de la familia F y el universo U. */
+//------------------------------------------------------------------
+std::vector<SolMO> exhaustive_search(
     const vector<Bitset>& F,
     const Bitset& U,
     const Bitset& G,
@@ -26,9 +28,10 @@ vector<SolMO> exhaustive_search(
     vector<vector<Expression>> expr(k + 1);
     vector<SolMO> soluciones;
 
-    // Nivel 0: conjuntos base + U + vacío
+    // Nivel 0: conjuntos base + conjunto universo
     expr[0].reserve(F.size() + 1);
 
+    // Nivel 0: añadir conjunto universo + conjuntos base
     for (int i = -1; i < (int)F.size(); i++) {
         if (i==-1) {
             set<int> u_set ={};
@@ -39,10 +42,11 @@ vector<SolMO> exhaustive_search(
             expr[0].emplace_back(F[i], "F" + to_string(i), sets, 0);
         }
 
+        // Evaluar cada expresión de nivel 0
         const Expression& e = expr[0].back();
         double j = M(e, G, Metric::Jaccard);
         int sizeH = M(e, G, Metric::SizeH);
-        int n_ops = M(e, G, Metric::OpSize); // n_ops == 0
+        int n_ops = M(e, G, Metric::OpSize);
         soluciones.emplace_back(e, n_ops, sizeH, j);
     }
 
@@ -57,7 +61,7 @@ vector<SolMO> exhaustive_search(
                 for (const auto& left : expr[a]) {
                     for (const auto& right : expr[b]) {
                         
-                        // Aplicamos operación
+                        // Aplicar operación
                         Bitset new_set;
                         if (op == 0) {
                             new_set = set_union(left.conjunto, 
@@ -70,14 +74,18 @@ vector<SolMO> exhaustive_search(
                                                right.conjunto);
                         }
                         
+                        // Crear nueva expresión
                         string new_expr = "(" + left.expr_str + op_str + 
                                          right.expr_str + ")";
                         
+                        // Combinar conjuntos usados
                         set<int> combined_sets = left.used_sets;
                         combined_sets.insert(right.used_sets.begin(), right.used_sets.end());
                         
+                        // Almacenar nueva expresión
                         expr[s].emplace_back(new_set, new_expr, combined_sets, s);
 
+                        // Evaluar nueva expresión
                         const Expression& e_nueva = expr[s].back();
                         double j = M(e_nueva, G, Metric::Jaccard);
                         int sizeH = M(e_nueva, G, Metric::SizeH);
@@ -87,14 +95,14 @@ vector<SolMO> exhaustive_search(
             }
         }
     }
-    
+    // Filtrar frente de Pareto
     return pareto_front(soluciones);
 }
 
 //------------------------------------------------------------------
-// EVALUACIÓN CON RESPECTO A G Y FILTRADO PARETO
+// EVALUACIÓN + FILTRADO PARETO (NO SE USA EN ESTA VERSIÓN)
 //------------------------------------------------------------------
-vector<SolMO> evaluar_subconjuntos(
+/* vector<SolMO> evaluar_subconjuntos(
     const vector<vector<Expression>>& expr,
     const Bitset& G,
     int k)
@@ -111,4 +119,4 @@ vector<SolMO> evaluar_subconjuntos(
         }
     }
     return pareto_front(soluciones);
-}
+} */ 

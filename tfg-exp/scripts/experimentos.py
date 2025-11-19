@@ -373,8 +373,8 @@ def ejecutar_experimentos_batch(programa_path, config):
         f_rep.write(f"  ALGORITMOS: greedy + genetico\n\n")
         
         timeout_ga = cfg['timeouts']['ga_default_sec']
-        ga_args = ['--time_limit', str(timeout_ga)]
-        
+        ga_args = ['--time_limit', str(timeout_ga)]
+        
         # Ejecutar experimentos
         for i, seed in enumerate(seeds, 1):
             output = ejecutar_experimento(programa_path, cfg, seed, i, len(seeds), algo="both", extra_args=ga_args)
@@ -434,8 +434,8 @@ def main():
     
     # Ejecutar experimentos
     print("\n¿Qué experimentos deseas ejecutar?")
-    print("1. Solo SMALL (4 instancias - exhaustiva + greedy + genético)")
-    print("2. Solo BATCH (50 instancias - greedy + genético)")
+    print("1. Solo SMALL (exhaustiva + greedy + genético)")
+    print("2. Solo BATCH (greedy + genético)")
     print("3. Ambos (SMALL + BATCH)")
     
     opcion = input("\nSelecciona una opción (1-3): ").strip()

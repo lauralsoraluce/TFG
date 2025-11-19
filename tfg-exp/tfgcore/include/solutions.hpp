@@ -1,14 +1,8 @@
-//======================================================================
+//----------------------------------------------------------------------
 // solutions.hpp
 //----------------------------------------------------------------------
-// Tipos y utilidades comunes para soluciones multiobjetivo:
-//   - SolMO: solución con métricas (Jaccard, |H|, nº ops)
-//   - Individuo: añade rank y crowding para NSGA-II
-//   - dominates(): relación de dominancia
-//   - pareto_front(): frente de Pareto para SolMO/Individuo
-//   - print_pareto_front(): salida simple a stdout
-//======================================================================
-
+// Utilidades comunes para soluciones multiobjetivo
+//----------------------------------------------------------------------
 #pragma once
 
 #include <algorithm>
@@ -19,25 +13,26 @@
 #include "expr.hpp"
 
 //------------------------------------------------------------------
-// Solución multiobjetivo base
+// Solución multiobjetivo
 //------------------------------------------------------------------
 struct SolMO {
-    Expression expr;
-    int n_ops = 0;
-    int sizeH = 0;
-    double jaccard = 0.0;
+    Expression expr;        // Expresión asociada
+    int n_ops = 0;          // Número de operaciones
+    int sizeH = 0;          // número de conjuntos distintos usados
+    double jaccard = 0.0;   // Coeficiente de Jaccard
 
+    // Constructores
     SolMO() = default;
     SolMO(const Expression& e, int ops, int size, double j)
         : expr(e), n_ops(ops), sizeH(size), jaccard(j) {}
 };
 
 //------------------------------------------------------------------
-// Individuo (para GA/NSGA-II)
+// Individuo (NSGA-II)
 //------------------------------------------------------------------
 struct Individuo : public SolMO{
-    int rank = 0;
-    double crowd = 0.0;
+    int rank = 0;       // Rango en el frente de Pareto
+    double crowd = 0.0; // Distancia de aglomeración
     Individuo() = default;
     Individuo(const Expression& e, int ops, int size, double j)
         : SolMO(e, ops, size, j), rank(0), crowd(0.0) {}
@@ -59,70 +54,35 @@ inline bool dominates(const SolMO& a, const SolMO& b) {
 //------------------------------------------------------------------
 template<typename T>
 std::vector<T> pareto_front_generic(const std::vector<T>& v) {
-    // if (v.empty()) return {};
-    
-    // std::vector<T> nd;
-    // nd.reserve(v.size());
-    
-    // for (const auto& sol : v) {
-    //     bool is_dominated = false;
-    //     for (const auto& other : v) {
-    //         if (&sol == &other) continue;
-    //         if (dominates(other, sol)) {
-    //             is_dominated = true;
-    //             break;
-    //         }
-    //     }
-    //     if (!is_dominated) {
-    //         nd.push_back(sol);
-    //     }
-    // }
-    
-    // std::stable_sort(nd.begin(), nd.end(), [](const T& a, const T& b) {
-    //     if (a.jaccard != b.jaccard) return a.jaccard > b.jaccard; // descendiente
-    //     if (a.sizeH != b.sizeH) return a.sizeH < b.sizeH; // ascendiente
-    //     return a.n_ops < b.n_ops; // ascendiente
-    // });
-
+    // Caso trivial
     if (v.empty()) return {};
     
     std::vector<T> nd; // El frente no dominado
-    
-    // Reserva espacio (opcional, pero puede ayudar)
-    // Asumimos que el frente será mucho más pequeño que v
     nd.reserve(v.size() / 10 + 1); 
 
-    for (const auto& sol : v) { // Bucle externo: O(N)
+    // Iterar sobre todas las soluciones
+    for (const auto& sol : v) {
         bool sol_is_dominated = false;
         
-        // Iteramos sobre el frente 'nd' actual usando un índice
-        // (Necesario porque podemos eliminar elementos)
+        // Comprobar si 'sol' es dominada por alguna del frente actual
         int i = 0;
         while (i < nd.size()) { // Bucle interno: O(M)
             
             const auto& other = nd[i];
 
+            // Comprobar dominancia entre 'sol' y 'other'
             if (dominates(other, sol)) {
-                // 'other' (en el frente) domina a 'sol'.
-                // 'sol' es inútil, dejamos de comprobar.
                 sol_is_dominated = true;
                 break;
             }
-            
+            // 'other' no domina a 'sol', comprobar si 'sol' domina a 'other'
             if (dominates(sol, other)) {
-                // 'sol' domina a 'other' (que estaba en el frente).
-                // Eliminamos 'other' del frente.
-                
-                // Técnica "swap-and-pop": O(1) para eliminar
-                // (rompe el orden, pero lo arreglamos al final)
                 nd[i] = nd.back();
                 nd.pop_back();
                 
-                // NO incrementamos 'i', porque necesitamos comprobar
-                // el nuevo elemento que acabamos de mover a 'nd[i]'.
-            } else {
-                // Ni 'sol' domina 'other', ni 'other' domina 'sol'.
-                // Pasamos al siguiente elemento del frente.
+            } 
+            // 'Ninguna dominancia', seguir con la siguiente
+            else {
                 i++;
             }
         }
@@ -134,25 +94,31 @@ std::vector<T> pareto_front_generic(const std::vector<T>& v) {
         }
     }
     
+    // Ordenar el frente de Pareto resultante
     std::stable_sort(nd.begin(), nd.end(), [](const T& a, const T& b) {
-        if (a.jaccard != b.jaccard) return a.jaccard > b.jaccard; // descendiente
-        if (a.sizeH != b.sizeH) return a.sizeH < b.sizeH; // ascendiente
-        return a.n_ops < b.n_ops; // ascendiente
+        if (a.jaccard != b.jaccard) return a.jaccard > b.jaccard; // descendente
+        if (a.sizeH != b.sizeH) return a.sizeH < b.sizeH; // ascendente
+        return a.n_ops < b.n_ops; // ascendente
     });
     
     return nd;
 }
 
+// ------------------------------------------------------------------
+// Frente de Pareto específico (SolMO)
+// ------------------------------------------------------------------
 inline std::vector<SolMO> pareto_front(const std::vector<SolMO>& v) {
     return pareto_front_generic(v);
 }
-
+// ------------------------------------------------------------------
+// Frente de Pareto específico (Individuo)
+// ------------------------------------------------------------------
 inline std::vector<Individuo> pareto_front(const std::vector<Individuo>& v) {
     return pareto_front_generic(v);
 }
 
 //------------------------------------------------------------------
-// Impresión sencilla del frente de Pareto
+// Impresión sencilla del frente de Pareto (general)
 //------------------------------------------------------------------
 template<typename T>
 void print_pareto_front_generic(const vector<T>& pareto) {
@@ -169,10 +135,16 @@ void print_pareto_front_generic(const vector<T>& pareto) {
     }
 }
 
+// ------------------------------------------------------------------
+// Impresión sencilla del frente de Pareto (SolMO)
+// ------------------------------------------------------------------
 inline void print_pareto_front(const std::vector<SolMO>& pareto) {
     print_pareto_front_generic(pareto);
 }
 
+// ------------------------------------------------------------------
+// Impresión sencilla del frente de Pareto (Individuo)
+// ------------------------------------------------------------------
 inline void print_pareto_front(const std::vector<Individuo>& pareto) {
     print_pareto_front_generic(pareto);
 }

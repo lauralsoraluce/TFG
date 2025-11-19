@@ -1,13 +1,8 @@
-//======================================================================
+//----------------------------------------------------------------------
 // expr.hpp
 //----------------------------------------------------------------------
 // Define la estructura básica Expression utilizada en todo el proyecto.
-// Cada expresión contiene:
-//   - El conjunto resultante (bitset).
-//   - Su representación en texto (expr_str).
-//   - Los conjuntos base utilizados.
-//   - El número de operaciones utilizadas.
-//======================================================================
+//----------------------------------------------------------------------
 
 #pragma once
 
@@ -26,11 +21,10 @@ struct Expression {
     set<int> used_sets;         // Índices de conjuntos base usados
     int n_ops = 0;              // Número de operaciones
 
+    // Constructores
     Expression() = default;
-
     Expression(Bitset c, std::string s)
         : conjunto(std::move(c)), expr_str(std::move(s)) {}
-    
     Expression(const Bitset& c, const std::string& s, const std::set<int>& sets, int ops=0)
         : conjunto(c), expr_str(s), used_sets(sets), n_ops(ops) {}
 };

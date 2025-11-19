@@ -1,18 +1,9 @@
-//======================================================================
+//------------------------------------------------------------------
 // domain.hpp
-//----------------------------------------------------------------------
-// Conjuntos como std::bitset<U_size> y operaciones básicas:
-//  - Unión (A ∪ B)
-//  - Intersección (A ∩ B)
-//  - Diferencia (A \ B)
-//
-// Convenciones:
-//  - U_size: tamaño del universo (por defecto 128). Cambiar y recompilar.
-//  - apply_op(op, A, B) acepta:
-//        op = 0 -> unión
-//        op = 1 -> intersección
-//        op = 2 -> diferencia
-//======================================================================
+//------------------------------------------------------------------
+// Define la representación de conjuntos (Bitset) y operaciones básicas.
+// El tamaño del universo (U_size) es configurable antes de compilar.
+//------------------------------------------------------------------
 
 #pragma once
 #include <bitset>

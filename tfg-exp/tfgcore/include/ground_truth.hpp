@@ -1,11 +1,8 @@
-//======================================================================
+//----------------------------------------------------------------------
 // ground_truth.hpp
 //----------------------------------------------------------------------
-// Generación de una instancia "ground truth":
-//  - Construye una expresión aleatoria (≤ k ops) a partir de F
-//  - Devuelve el G resultante de evaluarla, junto con F y la expresión
-//    que lo generó.
-//======================================================================
+// Generación de una instancia "ground truth" (de referencia)
+//----------------------------------------------------------------------
 
 #pragma once
 
@@ -20,12 +17,12 @@
 struct GroundTruthInstance {
     std::vector<Bitset> F;   // conjuntos base
     Bitset G;                // conjunto objetivo
-    Expression gold_expr;    // expresión que genera G
-    std::uint64_t seed;           // semilla usada
+    Expression gold_expr;    // expresión de referencia
+    std::uint64_t seed;      // semilla usada
 };
 
 //------------------------------------------------------------------
-// Construcción de la instancia ground-truth
+// Construcción de la instancia ground truth
 //------------------------------------------------------------------
 GroundTruthInstance make_groundtruth(const Bitset& U, 
                                      int n = 128,

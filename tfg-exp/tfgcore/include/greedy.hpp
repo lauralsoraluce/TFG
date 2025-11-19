@@ -1,11 +1,8 @@
-//======================================================================
+//------------------------------------------------------------------
 // greedy.hpp
 //----------------------------------------------------------------------
-// Declaraciones del algoritmo greedy para la construcción de expresiones
-// y evaluación multiobjetivo (Jaccard, tamaño, nº de operaciones).
-//
-// Dependencias: expr.hpp, domain.hpp, solutions.hpp
-//======================================================================
+// Algoritmo greedy 
+//------------------------------------------------------------------
 
 #ifndef GREEDY_HPP
 #define GREEDY_HPP
@@ -15,20 +12,13 @@
 #include "domain.hpp"
 #include "solutions.hpp"
 
-std::vector<SolMO> greedy(
-    const std::vector<Bitset>& F,
-    const Bitset& U,
-    int k);
-
+// ------------------------------------------------------------------
+// Búsqueda greedy multi-objetivo
+// ------------------------------------------------------------------ 
 std::vector<SolMO> greedy_multiobjective_search(
     const std::vector<Bitset>& F,
     const Bitset& U,
     const Bitset& G,
     int k);
-//------------------------------------------------------------------
-// Mostrar el frente de Pareto por consola
-//------------------------------------------------------------------
-void print_pareto_front(const std::vector<SolMO>& pareto);
-
 
 #endif // GREEDY_HPP

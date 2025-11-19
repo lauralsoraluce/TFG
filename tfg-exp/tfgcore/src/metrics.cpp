@@ -1,11 +1,8 @@
-//======================================================================
+//----------------------------------------------------------------------
 // metrics.cpp
 //----------------------------------------------------------------------
-// Implementación de las métricas usadas por los algoritmos:
-//   - Jaccard
-//   - SizeH
-//   - OpSize
-//======================================================================
+// Definición de métricas comunes usadas por los algoritmos
+//----------------------------------------------------------------------
 
 #include "metrics.hpp"
 
@@ -25,6 +22,7 @@ static inline double jaccard_coefficient(const Bitset& H, const Bitset& G) {
 // Función principal de métrica
 //------------------------------------------------------------------
 double M(const Expression& H, const Bitset& G, Metric metric) {
+    // Se pueden agregar más métricas aquí
     switch (metric) {
         case Metric::Jaccard:
             return jaccard_coefficient(H.conjunto, G);

@@ -1,11 +1,8 @@
-//======================================================================
+//----------------------------------------------------------------------
 // metrics.hpp
 //----------------------------------------------------------------------
-// Definición de métricas comunes usadas por los algoritmos:
-//   - Jaccard (maximizar)
-//   - SizeH  (minimizar |H|)
-//   - OpSize (minimizar nº de operaciones)
-//======================================================================
+// Definición de métricas comunes usadas por los algoritmos
+//----------------------------------------------------------------------
 
 #pragma once
 
@@ -19,13 +16,13 @@
 // Tipos de métrica
 //------------------------------------------------------------------
 enum class Metric {
-    Jaccard,
-    SizeH,        // |H| (útil como objetivo a minimizar)
-    OpSize       // Número de operaciones (útil como objetivo a minimizar)
+    Jaccard,     // índice de Jaccard (IoU) (a maximizar)
+    SizeH,       // Número de subconjuntos de F_i distintos (a minimizar)
+    OpSize       // Número de operaciones (a minimizar)
 };
 
 //------------------------------------------------------------------
-// Parseo desde string
+// Parseo desde string (para reconocerlas en línea de comandos)
 //------------------------------------------------------------------
 inline Metric parse_metric(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
@@ -44,11 +41,11 @@ inline const char* metric_name(Metric m) {
         case Metric::SizeH:     return "SizeH";
         case Metric::OpSize:    return "OpSize";
     }
-    return "Unknown";
+    return "Desconocida";
 }
 
 //------------------------------------------------------------------
-// Indica si la métrica se maximiza
+// Indica si la métrica se maximiza o no
 //------------------------------------------------------------------
 inline bool is_maximization(Metric m) {
     switch (m) {
