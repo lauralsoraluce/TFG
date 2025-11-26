@@ -1,0 +1,2 @@
+# TFG: Algorithms for approximating a set from others. Mathematical Characterization and Experimental Study.
+This repository contains the code, experiments, and materials of my Final Degree Project (TFG), titled “Algorithms for Approximating a Set from Others: Mathematical Characterization and Experimental Study”, completed as part of the Double Degree in Computer Engineering and Mathematics at the University of Granada (UGR), under the supervision of Nicolás Marín Ruiz and Daniel Sánchez Fernández.
